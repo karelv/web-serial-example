@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Web-Serial-Polyfill example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  </head>
+  <style>
+section#serial_terminal {
+  line-height: 10px;
+}
+section#console {
+  line-height: 10px;
+}
+
+pre{
+  line-height: 10px;
+  padding: 0px !important;
+  margin-bottom: 0px;
+  font-size: 10px;
+  display: inline;
+  background-color: transparent;
+}
+.border
+{
+  border-style: solid;
+  border-width: 1px;
+}
+  </style>
+
+  <body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">
+        Web-Serial-Polyfill example
+      </h1>
+      <p class="subtitle">
+        Combined with Web-Serial-Api.
+      </p>
+    </div>
+    <div class="container">
+      <div class="field has-addons">
+        <div class="control is-expanded">
+          <input type="text" class="input is-primary is-11" id="serial_send" name="serial_send" placeholder="Enter here the command to sent and press <ENTER>" />
+        </div>
+        <p class="control">
+          <a title="Sent" class="button is-primary btn_sent">Sent</a>
+        </p>
+      </div>
+      <a title="Connect" class="button is-info btn_connect">Connect</a>
+      <p>Terminal:</p>
+      <main id="log" class="border" style="left: 0px; width: 100%; height:100px;">
+        <section id="serial_terminal" style="height: 100%; overflow: auto;">
+        </section>
+      </main>
+    </div>
+    <div class="container">
+      <p>Console:</p>
+      <main id="console-log" class="border" style="left: 0px; width: 100%; height:100px;">
+        <section id="console" style="height: 100%; overflow: auto;">
+        </section>
+      </main>
+    </div>
+    <div id="serial_port">
+      <div id="receive_data"></div>
+      <div id="sent_data"></div>
+    </div>
+  </section>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script type="module">
+    import { serial as webSerialPolyfill } from "https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15";
+    //import { serial as webSerialPolyfill } from "serial.js";
+
+    var serial_module = null;
+    if ('serial' in navigator)
+    {
+      serial_module = navigator.serial;
+    } else
+    {
+      if ('usb' in navigator)
+      {
+        serial_module = webSerialPolyfill;
+      }
+    }
+
+    function sent_command(command)
+    {
+      const sent_event = new CustomEvent('sent', { detail: command });
+      let div = document.querySelector('#sent_data');
+      div.dispatchEvent(sent_event);
+    }
+
+    var receive_buffer = "";
+
+    $(document).ready(function(){
+      $("#serial_terminal").html("<br>");
+
+      if (serial_module === null) {
+        // The Web Serial API is NOT supported.
+        $('.button').not('.keep').prop('disabled', true); // disable all buttons!
+        $("#serial_terminal").append('<pre>This browser on this operating system is not supported.</pre><br>');
+        return;
+      }
+
+      $(".btn_sent").click(function(){
+        let term = $("#console");
+        term.append('<pre>==> Sent button</pre><br>');
+        term.scrollTop(term[0].scrollHeight);
+      });
+
+      $(".btn_connect").click(function(){
+        let term = $("#serial_terminal");
+        term.append('<pre>==> Connect button</pre><br>');
+        term.scrollTop(term[0].scrollHeight);
+      });
+
+      let div = document.querySelector('#receive_data');
+
+      // listener to generate receive_line events.
+      div.addEventListener('receive', (e) => {
+        let value_str = dec.decode(e.detail);
+        value_str = value_str.replaceAll('\r', '');
+
+        let lines = value_str.split("\n");
+
+        let complete_lines = lines.slice(0, -1);
+        if (complete_lines.length > 0)
+        {
+          complete_lines[0] = receive_buffer + complete_lines[0];
+          receive_buffer = "";
+        }
+
+        for (let i=0; i<complete_lines.length; i++)
+        {
+          const receive_line_event = new CustomEvent('receive_line', { detail: complete_lines[i] });
+          let receive_div = document.querySelector('#receive_data');
+          receive_div.dispatchEvent(receive_line_event);
+        }
+
+        receive_buffer += lines.slice(-1);
+
+      }, false);
+
+
+    });
+  </script>
+  </body>
+</html>
