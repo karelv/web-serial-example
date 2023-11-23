@@ -70,8 +70,8 @@ pre{
   </section>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script type="module">
-    import { serial as webSerialPolyfill } from "https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15";
-    //import { serial as webSerialPolyfill } from "serial.js";
+    //import { serial as webSerialPolyfill } from "https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15";
+    import { serial as webSerialPolyfill } from "serial.js";
 
     var serial_module = null;
     if ('serial' in navigator)

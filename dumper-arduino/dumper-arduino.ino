@@ -54,6 +54,11 @@ loop()
     g_cmd[strlen(g_cmd)] = data;
   }
 
-  Serial.println(g_buffer);
+  for (int i=0; i<strlen(g_buffer); i+=70)
+  {
+    Serial.print("0123456789012345678901234567890123456789012345678901234567890123456789");
+  }
+  Serial.println("");
+  
   delay(g_interval);
 }
