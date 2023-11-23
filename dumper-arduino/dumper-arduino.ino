@@ -4,8 +4,8 @@
 
 char g_buffer[MAX_BUFFER];
 uint32_t g_interval = 5000;
-
 char g_cmd[128];
+
 
 void
 setup()
@@ -21,6 +21,7 @@ loop()
   while (Serial.available())
   {
     char data = Serial.read();
+    data = tolower(data);
     if (data == '\n')
     {
       char *chunk = strstr(g_cmd, "chunk=");
@@ -54,11 +55,7 @@ loop()
     g_cmd[strlen(g_cmd)] = data;
   }
 
-  for (int i=0; i<strlen(g_buffer); i+=70)
-  {
-    Serial.print("0123456789012345678901234567890123456789012345678901234567890123456789");
-  }
-  Serial.println("");
+  Serial.println(g_buffer);
   
   delay(g_interval);
 }
