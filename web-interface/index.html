@@ -69,9 +69,9 @@ pre{
     </div>
   </section>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-  <script type="module">
+  <script type="module" crossorigin>
     import { serial as webSerialPolyfill } from "https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15";
-    //import { serial as webSerialPolyfill } from "https://karelv.github.io/web-serial-example/serial.js";
+    // import { serial as webSerialPolyfill } from "https://karelv.github.io/web-serial-example/serial.js";
 
     var serial_module = null;
     if ('serial' in navigator)
@@ -84,9 +84,8 @@ pre{
         serial_module = webSerialPolyfill;
       }
     }
-    var keep_reading = true;
-    var reader;
-    var writer;
+    const bufferSize = 8 * 1024; // 8kB
+    let reader;
     var receive_buffer = "";
     var serial = null;
     var enc = new TextEncoder(); // always utf-8
@@ -100,25 +99,48 @@ pre{
       div.dispatchEvent(sent_event);
     }
 
+
+    /**
+     * Closes the currently active connection.
+     */
     async function close_port()
     {
-      if (serial != null)
+      const localPort = serial;
+      serial = undefined;
+
+      // Force reader.read() to resolve immediately and subsequently
+      // call reader.releaseLock() in the loop example above.
+      if (reader)
       {
-      // User clicked a button to close the serial port.
-        keep_reading = false;
+        await reader.cancel();
+      }
+
+      if (localPort)
+      {
+        // User clicked a button to close the serial port.
         $(".btn_sent").attr('disabled', ''); // disable input entry!
         $("#serial_send").attr('disabled', ''); // disable input entry!
 
-        // Force reader.read() to resolve immediately and subsequently
-        // call reader.releaseLock() in the loop example above.
-        reader.cancel();
-        await closed_promise;
+        try {
+          await localPort.close();
+        } catch (e) {
+          console.error(e);
+          if (e instanceof Error) {
+            let term = $("#serial_terminal");
+            term.append('<pre>### [error] '+e.toString()+'</pre><br>');
+            term.scrollTop(term[0].scrollHeight);
+          }
+        }
       }
-      serial = null;
     }
 
     $(document).ready(function(){
       $("#serial_terminal").html("<br>");
+
+      let con = $("#console");
+      con.append('<pre>This window is only used when using the local.js; see github repo</pre><br>');
+      con.scrollTop(con[0].scrollHeight);
+
 
       $(".btn_sent").attr('disabled', ''); // disable input entry!
       $("#serial_send").attr('disabled', ''); // disable input entry!
@@ -221,17 +243,21 @@ pre{
         term.append("<pre> <- " + value_str.replaceAll('\n','') + "</pre><br>");
         term.scrollTop(term[0].scrollHeight);
 
-        await writer.write(value_byte);
+        if (serial && serial.writable)
+        {
+          const writer = serial.writable.getWriter();
+          writer.write(value_byte);
+          writer.releaseLock();
+        }
       }, false);
     });
 
 
     async function serial_open_and_start_reading()
     {
-      keep_reading = true;
       try
       {
-        await serial.open({ baudRate: 1000000, bufferSize: 5000 });
+        await serial.open({ baudRate: 1000000, baudrate: 1000000, bufferSize: bufferSize });
 
         let term = $("#serial_terminal");
         term.append("<pre>### [connected]</pre><br>");
@@ -249,44 +275,81 @@ pre{
         return;
       }
 
+
       $(".btn_sent").removeAttr('disabled'); // enable input entry!
       $("#serial_send").removeAttr('disabled'); // enable input entry!
 
-      while (serial.readable && keep_reading)
+      console.log("test!");
+
+      while (serial && serial.readable)
       {
-        reader = serial.readable.getReader();
-        writer = serial.writable.getWriter();
-        // Listen to data coming from the serial device.
-        try
-        {
-          while (true) {
-            const { value, done } = await reader.read();
+        try {
+          try {
+            reader = serial.readable.getReader({mode: 'byob'});
+            console.log("byob");
+          } catch {
+            reader = serial.readable.getReader();
+            console.log("standard");
+          }
+          console.log(reader);
+
+          let buffer = null;
+          for (;;) {
+            const {value, done} = await (async () => {
+              if (reader instanceof ReadableStreamBYOBReader) {
+                if (!buffer) {
+                  buffer = new ArrayBuffer(bufferSize);
+                }
+                const {value, done} =
+                    await reader.read(new Uint8Array(buffer, 0, bufferSize));
+                buffer = value?.buffer;
+                return {value, done};
+              } else {
+                return await reader.read();
+              }
+            })();
+
+            if (value) {
+              const receive_event = new CustomEvent('receive', { detail: value });
+              let div = document.querySelector('#receive_data');
+              div.dispatchEvent(receive_event);
+            }
             if (done) {
-              // reader.cancel() has been called.
-              reader.releaseLock();
               break;
             }
-            const receive_event = new CustomEvent('receive', { detail: value });
-            let div = document.querySelector('#receive_data');
-            div.dispatchEvent(receive_event);
           }
-        } catch (error) {
-          console.log(error);
-
+        } catch (e) {
+          console.error(e);
           $(".btn_sent").attr('disabled', ''); // disable input entry!
           $("#serial_send").attr('disabled', ''); // disable input entry!
-
           let term = $("#serial_terminal");
           term.append("<pre>### [disconnected] " + error.toString() + "</pre><br>");
           term.scrollTop(term[0].scrollHeight);
+          //await new Promise<void>((resolve) => {
+          //  if (e instanceof Error) {
+          //    term.writeln(`<ERROR: ${e.message}>`, resolve);
+          //  }
+          //});
         } finally {
-          // Allow the serial port to be closed later.
-          reader.releaseLock();
+          if (reader) {
+            reader.releaseLock();
+            reader = undefined;
+          }
         }
       }
-      writer.releaseLock();
-      await serial.close();
-      serial = null;
+
+      if (serial) {
+        try {
+          await serial.close();
+        } catch (e) {
+          console.error(e);
+          let term = $("#serial_terminal");
+          term.append("<pre>### [disconnected] " + error.toString() + "</pre><br>");
+          term.scrollTop(term[0].scrollHeight);
+        }
+        $(".btn_sent").attr('disabled', ''); // disable input entry!
+        $("#serial_send").attr('disabled', ''); // disable input entry!
+      }
     }
 
   </script>
