@@ -1,17 +1,15 @@
 #include <Arduino.h>
 
-#define MAX_BUFFER 10*1024
 
-char g_buffer[MAX_BUFFER];
-uint32_t g_interval = 5000;
-char g_cmd[128];
+uint32_t g_interval = 1000;
+uint32_t g_chunk_size = 10;
+char g_cmd[32];
 
 
 void
 setup()
 {
-  Serial.begin(1000000);
-  strcpy(g_buffer, "usage set chunksize -> sent 'chunk=1000', set interval time in ms 'interval=1000'");
+  Serial.begin(115200);
 }
 
 
@@ -22,24 +20,14 @@ loop()
   {
     char data = Serial.read();
     data = tolower(data);
-    if (data == '\n')
+    if ((data == '\n') || (data == '\r'))
     {
       char *chunk = strstr(g_cmd, "chunk=");
       if (chunk)
       {
         chunk += strlen("chunk=");        
-        int chunk_size = atoi(chunk);
-        if (chunk_size > MAX_BUFFER) chunk_size = MAX_BUFFER;
-        if (chunk_size <= 0) chunk_size = 1;
-        char tmp[16]; memset(tmp, 0, sizeof(tmp));
-        sprintf(tmp, "%d-", chunk_size);
-        
-        memset(g_buffer, 0, sizeof(g_buffer));
-        while (strlen(g_buffer) < chunk_size)
-        {
-          strcat(g_buffer, tmp);
-        }
-        g_buffer[chunk_size] = '\0';
+        g_chunk_size = atoi(chunk);
+        if (g_chunk_size <= 0) g_chunk_size = 1;
       }
       char *interval = strstr(g_cmd, "interval=");
       if (interval)
@@ -55,7 +43,13 @@ loop()
     g_cmd[strlen(g_cmd)] = data;
   }
 
-  Serial.println(g_buffer);
+  const char *numbers = "0123456789";
+  for (int i=0; i<g_chunk_size; i++)
+  {
+    Serial.write(byte(numbers[i%10]));
+  }
+  Serial.println();
+  //yield();
   
   delay(g_interval);
 }
