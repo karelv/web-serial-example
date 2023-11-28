@@ -138,7 +138,7 @@ pre{
       $("#serial_terminal").html("<br>");
 
       let con = $("#console");
-      con.append('<pre>This window is only used when using the local.js; see github repo</pre><br>');
+      con.append('<pre>This window is only used when using the local serial.js; see github repo</pre><br>');
       con.scrollTop(con[0].scrollHeight);
 
 
@@ -323,7 +323,7 @@ pre{
           $(".btn_sent").attr('disabled', ''); // disable input entry!
           $("#serial_send").attr('disabled', ''); // disable input entry!
           let term = $("#serial_terminal");
-          term.append("<pre>### [disconnected] " + error.toString() + "</pre><br>");
+          term.append("<pre>### [disconnected] " + e.toString() + "</pre><br>");
           term.scrollTop(term[0].scrollHeight);
           //await new Promise<void>((resolve) => {
           //  if (e instanceof Error) {
@@ -344,7 +344,7 @@ pre{
         } catch (e) {
           console.error(e);
           let term = $("#serial_terminal");
-          term.append("<pre>### [disconnected] " + error.toString() + "</pre><br>");
+          term.append("<pre>### [disconnected] " + e.toString() + "</pre><br>");
           term.scrollTop(term[0].scrollHeight);
         }
         $(".btn_sent").attr('disabled', ''); // disable input entry!
