@@ -1,8 +1,8 @@
 #include <Arduino.h>
 
 
-uint32_t g_interval = 1000;
-uint32_t g_chunk_size = 10;
+uint32_t g_interval = 500;
+uint32_t g_chunk_size = 50;
 char g_cmd[32];
 
 
